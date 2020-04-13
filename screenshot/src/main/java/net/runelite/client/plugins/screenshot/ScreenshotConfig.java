@@ -198,11 +198,21 @@ public interface ScreenshotConfig extends Config
 		return false;
 	}
 
+	// TODO: Dev begin
+	@ConfigItem(
+			keyName = "mentions",
+			name = "Screenshot Mentions",
+			description = "Configures whether screenshots are taken when the player is mentioned in chat.",
+			position = 15
+	)
+	default boolean screenshotMentions() { return false; }
+	// TODO: Dev end
+
 	@ConfigItem(
 		keyName = "hotkey",
 		name = "Screenshot hotkey",
 		description = "When you press this key a screenshot will be taken",
-		position = 15
+		position = 16
 	)
 	default Keybind hotkey()
 	{

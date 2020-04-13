@@ -60,6 +60,7 @@ import net.runelite.api.events.PlayerDeath;
 import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.util.Text;
 import net.runelite.api.widgets.Widget;
+import static java.util.regex.Pattern.quote; // TODO: Dev
 import static net.runelite.api.widgets.WidgetID.BARROWS_REWARD_GROUP_ID;
 import static net.runelite.api.widgets.WidgetID.CHAMBERS_OF_XERIC_REWARD_GROUP_ID;
 import static net.runelite.api.widgets.WidgetID.CHATBOX_GROUP_ID;
@@ -109,6 +110,7 @@ public class ScreenshotPlugin extends Plugin
 	private static final Pattern VALUABLE_DROP_PATTERN = Pattern.compile(".*Valuable drop: ([^<>]+)(?:</col>)?");
 	private static final Pattern UNTRADEABLE_DROP_PATTERN = Pattern.compile(".*Untradeable drop: ([^<>]+)(?:</col>)?");
 	private static final Pattern DUEL_END_PATTERN = Pattern.compile("You have now (won|lost) ([0-9]+) duels?\\.");
+	//private static final Pattern ASDF = Pattern.compile("\\b(" + quote(client.getLocalPlayer().getName()) + ")\\b", Pattern.CASE_INSENSITIVE); // TODO: Dev
 	private static final List<String> PET_MESSAGES = List.of("You have a funny feeling like you're being followed",
 		"You feel something weird sneaking into your backpack",
 		"You have a funny feeling like you would have been followed");
@@ -133,6 +135,11 @@ public class ScreenshotPlugin extends Plugin
 	private Integer theatreOfBloodNumber;
 
 	private boolean shouldTakeScreenshot;
+
+	// TODO: Dev begin
+	private Pattern usernameMatcher = null;
+	private boolean shouldNotify = true;
+	// TODO: Dev end
 
 	@Inject
 	private ScreenshotConfig config;
@@ -234,6 +241,16 @@ public class ScreenshotPlugin extends Plugin
 		{
 			reportButton = spriteManager.getSprite(SpriteID.CHATBOX_REPORT_BUTTON, 0);
 		}
+
+		// TODO: Dev begin
+		switch (event.getGameState())
+		{
+			case LOGIN_SCREEN:
+			case HOPPING:
+				usernameMatcher = null;
+				break;
+		}
+		// TODO: Dev end
 	}
 
 	@Subscribe
@@ -310,6 +327,28 @@ public class ScreenshotPlugin extends Plugin
 	@Subscribe
 	void onChatMessage(ChatMessage event)
 	{
+		// TODO: Dev begin
+		// TODO: Create enum subset of relevant values, create HashMap of said subset, check if eventType in subset
+		ChatMessageType eventType = event.getType();
+		log.debug("[DEV] ScreenshotPlugin.onChatMessage() - eventType.toString(): " + eventType.toString());
+		log.debug("[DEV] ScreenshotPlugin.onChatMessage() - event.getMessage(): " + event.getMessage());
+		log.debug("[DEV] ScreenshotPlugin.onChatMessage() - event.getMessageNode().getValue(): " + event.getMessageNode().getValue());
+		if(eventType == ChatMessageType.MODCHAT || eventType == ChatMessageType.PUBLICCHAT || eventType == ChatMessageType.FRIENDSCHAT || eventType == ChatMessageType.AUTOTYPER ||  eventType == ChatMessageType.MODAUTOTYPER || eventType == ChatMessageType.PLAYERRELATED || eventType == ChatMessageType.TENSECTIMEOUT) {
+			if(usernameMatcher == null && client.getLocalPlayer() != null && client.getLocalPlayer().getName() != null) {
+				usernameMatcher = Pattern.compile("\\b(" + quote(client.getLocalPlayer().getName()) + ")\\b", Pattern.CASE_INSENSITIVE);
+			}
+			if(config.screenshotMentions() && usernameMatcher != null) {
+				Matcher m = usernameMatcher.matcher(event.getMessageNode().getValue());
+				if(m.find()) {
+					String fileName = "Mention " + " (" + m.group(1) + ")";
+					shouldNotify = false;
+					takeScreenshot(fileName, "Mentions");
+					shouldNotify = true;
+				}
+			}
+		}
+		// TODO: Dev end
+
 		if (event.getType() != ChatMessageType.GAMEMESSAGE && event.getType() != ChatMessageType.SPAM && event.getType() != ChatMessageType.TRADE)
 		{
 			return;
@@ -664,7 +703,7 @@ public class ScreenshotPlugin extends Plugin
 
 		// Draw the game onto the screenshot
 		graphics.drawImage(image, gameOffsetX, gameOffsetY, null);
-		imageCapture.takeScreenshot(screenshot, fileName, subDir, config.notifyWhenTaken(), config.uploadScreenshot());
+		imageCapture.takeScreenshot(screenshot, fileName, subDir, (config.notifyWhenTaken() && shouldNotify), config.uploadScreenshot());  // TODO: Dev
 	}
 
 	@VisibleForTesting
