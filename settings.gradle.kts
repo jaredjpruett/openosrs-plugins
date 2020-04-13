@@ -25,6 +25,7 @@
 
 rootProject.name = "OpenOSRS Plugins"
 
+/*
 include(":achievementdiary")
 include(":agility")
 include(":ammo")
@@ -143,7 +144,6 @@ include(":roguesden")
 include(":runecraft")
 include(":runepouch")
 include(":screenmarkers")
-include(":screenshot")
 include(":shayzieninfirmary")
 include(":skillcalculator")
 include(":skybox")
@@ -178,6 +178,10 @@ include(":xpglobes")
 include(":xptracker")
 include(":xpupdater")
 include(":zalcano")
+*/
+
+include(":reorderprayers")
+include(":screenshot")
 
 for (project in rootProject.children) {
     project.apply {
