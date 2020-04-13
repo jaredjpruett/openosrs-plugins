@@ -86,7 +86,7 @@ public class ReorderPrayersPlugin extends Plugin
 
 	private static final int PRAYER_COUNT = Prayer.values().length;
 
-	private static final List<WidgetInfo> PRAYER_WIDGET_INFO_LIST = ImmutableList.of(
+	private static final List<WidgetInfo> PRAYER_WIDGET_INFO_LIST = List.of(
 		WidgetInfo.PRAYER_THICK_SKIN,
 		WidgetInfo.PRAYER_BURST_OF_STRENGTH,
 		WidgetInfo.PRAYER_CLARITY_OF_THOUGHT,
@@ -118,7 +118,7 @@ public class ReorderPrayersPlugin extends Plugin
 		WidgetInfo.PRAYER_AUGURY
 	);
 
-	private static final List<Integer> QUICK_PRAYER_CHILD_IDS = ImmutableList.of(
+	private static final List<Integer> QUICK_PRAYER_CHILD_IDS = List.of(
 		WidgetID.QuickPrayer.THICK_SKIN_CHILD_ID,
 		WidgetID.QuickPrayer.BURST_OF_STRENGTH_CHILD_ID,
 		WidgetID.QuickPrayer.CLARITY_OF_THOUGHT_CHILD_ID,
