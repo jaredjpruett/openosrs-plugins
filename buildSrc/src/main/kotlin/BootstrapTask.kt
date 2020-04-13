@@ -18,7 +18,6 @@ import kotlin.collections.ArrayList
 
 
 open class BootstrapTask : DefaultTask() {
-
     private fun formatDate(date: Date?) = with(date ?: Date()) {
         SimpleDateFormat("yyyy-MM-dd").format(this)
     }
@@ -30,7 +29,7 @@ open class BootstrapTask : DefaultTask() {
     private fun getBootstrap(): JSONArray? {
         val client = OkHttpClient()
 
-        val url = "https://raw.githubusercontent.com/open-osrs/plugin-hosting/master/plugins.json"
+        val url = "https://raw.githubusercontent.com/jaredjpruett/plugin-hosting/master/plugins.json"
         val request = Request.Builder()
                 .url(url)
                 .build()
@@ -41,8 +40,8 @@ open class BootstrapTask : DefaultTask() {
     @TaskAction
     fun boostrap() {
         if (project == project.rootProject) {
-            val bootstrapDir = File("${project.buildDir}/bootstrap")
-            val bootstrapReleaseDir = File("${project.buildDir}/bootstrap/release")
+            val bootstrapDir = File("../plugin-hosting")
+            val bootstrapReleaseDir = File("../plugin-hosting/release")
 
             bootstrapDir.mkdirs()
             bootstrapReleaseDir.mkdirs()
@@ -61,7 +60,7 @@ open class BootstrapTask : DefaultTask() {
                             "version" to it.project.version,
                             "requires" to ProjectVersions.apiVersion,
                             "date" to formatDate(Date()),
-                            "url" to "https://github.com/open-osrs/plugin-hosting/blob/master/release/${it.project.name}-${it.project.version}.jar?raw=true",
+                            "url" to "https://github.com/jaredjpruett/plugin-hosting/blob/master/release/${it.project.name}-${it.project.version}.jar?raw=true",
                             "sha512sum" to hash(plugin.readBytes())
                     ))
 
@@ -96,7 +95,7 @@ open class BootstrapTask : DefaultTask() {
                         plugins.add(pluginObject)
                     }
 
-                    plugin.copyTo(Paths.get(bootstrapReleaseDir.toString(), "${it.project.name}-${it.project.version}.jar").toFile())
+                    plugin.copyTo(Paths.get(bootstrapReleaseDir.toString(), "${it.project.name}-${it.project.version}.jar").toFile(), true)
                 }
             }
 
@@ -104,6 +103,5 @@ open class BootstrapTask : DefaultTask() {
                 out.println(plugins.toString())
             }
         }
-
     }
 }
