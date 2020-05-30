@@ -34,8 +34,10 @@ import net.runelite.api.Client;
 import net.runelite.api.IterableHashTable;
 import net.runelite.api.MessageNode;
 import net.runelite.api.Player;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.ScriptCallbackEvent;
 import net.runelite.client.config.OpenOSRSConfig;
+import net.runelite.client.game.ClanManager;
 import static net.runelite.client.plugins.chatfilter.ChatFilterPlugin.CENSOR_MESSAGE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -63,6 +65,10 @@ public class ChatFilterPluginTest
 	@Mock
 	@Bind
 	private OpenOSRSConfig openOSRSConfig;
+
+	@Mock
+	@Bind
+	private ClanManager clanManager;
 
 	@Mock
 	private Player localPlayer;
@@ -105,6 +111,13 @@ public class ChatFilterPluginTest
 	{
 		MessageNode node = mock(MessageNode.class);
 		when(node.getName()).thenReturn(sender);
+		return node;
+	}
+
+	private MessageNode mockMessageNode(int id)
+	{
+		MessageNode node = mock(MessageNode.class);
+		when(node.getId()).thenReturn(id);
 		return node;
 	}
 
@@ -169,7 +182,7 @@ public class ChatFilterPluginTest
 	@Test
 	public void testMessageFromFriendIsFiltered()
 	{
-		when(client.isClanMember("Iron Mammal")).thenReturn(false);
+		when(clanManager.isClanMember("Iron Mammal")).thenReturn(false);
 		when(chatFilterConfig.filterFriends()).thenReturn(true);
 		assertTrue(chatFilterPlugin.shouldFilterPlayerMessage("Iron Mammal"));
 	}
@@ -193,7 +206,7 @@ public class ChatFilterPluginTest
 	@Test
 	public void testMessageFromClanIsNotFiltered()
 	{
-		when(client.isClanMember("B0aty")).thenReturn(true);
+		when(clanManager.isClanMember("B0aty")).thenReturn(true);
 		when(chatFilterConfig.filterClan()).thenReturn(false);
 		assertFalse(chatFilterPlugin.shouldFilterPlayerMessage("B0aty"));
 	}
@@ -209,7 +222,7 @@ public class ChatFilterPluginTest
 	public void testMessageFromNonFriendNonClanIsFiltered()
 	{
 		when(client.isFriended("Woox", false)).thenReturn(false);
-		when(client.isClanMember("Woox")).thenReturn(false);
+		when(clanManager.isClanMember("Woox")).thenReturn(false);
 		assertTrue(chatFilterPlugin.shouldFilterPlayerMessage("Woox"));
 	}
 
@@ -321,5 +334,52 @@ public class ChatFilterPluginTest
 		ScriptCallbackEvent event = createCallbackEvent("Adam", "please filterme plugin", ChatMessageType.PUBLICCHAT);
 		chatFilterPlugin.onScriptCallbackEvent(event);
 		assertEquals(CENSOR_MESSAGE, client.getStringStack()[client.getStringStackSize() - 1]);
+	}
+
+	@Test
+	public void testDuplicateChatFiltered()
+	{
+		when(chatFilterConfig.collapseGameChat()).thenReturn(true);
+		chatFilterPlugin.onChatMessage(new ChatMessage(mockMessageNode(0), ChatMessageType.GAMEMESSAGE, null, "testMessage", null, 0));
+		ScriptCallbackEvent event = createCallbackEvent(null, "testMessage", ChatMessageType.GAMEMESSAGE);
+		chatFilterPlugin.onScriptCallbackEvent(event);
+		assertEquals(0, client.getIntStack()[client.getIntStackSize() - 3]);
+	}
+	@Test
+	public void testNoDuplicate()
+	{
+		when(chatFilterConfig.collapseGameChat()).thenReturn(true);
+		chatFilterPlugin.onChatMessage(new ChatMessage(mockMessageNode(1), ChatMessageType.GAMEMESSAGE, null, "testMessage", null, 0));
+		ScriptCallbackEvent event = createCallbackEvent(null, "testMessage", ChatMessageType.GAMEMESSAGE);
+		chatFilterPlugin.onScriptCallbackEvent(event);
+		assertEquals(1, client.getIntStack()[client.getIntStackSize() - 3]);
+		assertEquals("testMessage", client.getStringStack()[client.getStringStackSize() - 1]);
+	}
+	@Test
+	public void testDuplicateChatCount()
+	{
+		when(chatFilterConfig.collapseGameChat()).thenReturn(true);
+		chatFilterPlugin.onChatMessage(new ChatMessage(mockMessageNode(4), ChatMessageType.GAMEMESSAGE, null, "testMessage", null, 0));
+		chatFilterPlugin.onChatMessage(new ChatMessage(mockMessageNode(3), ChatMessageType.GAMEMESSAGE, null, "testMessage", null, 0));
+		chatFilterPlugin.onChatMessage(new ChatMessage(mockMessageNode(2), ChatMessageType.GAMEMESSAGE, null, "testMessage", null, 0));
+		chatFilterPlugin.onChatMessage(new ChatMessage(mockMessageNode(1), ChatMessageType.GAMEMESSAGE, null, "testMessage", null, 0));
+		ScriptCallbackEvent event = createCallbackEvent(null, "testMessage", ChatMessageType.GAMEMESSAGE);
+		chatFilterPlugin.onScriptCallbackEvent(event);
+		assertEquals(1, client.getIntStack()[client.getIntStackSize() - 3]);
+		assertEquals("testMessage (4)", client.getStringStack()[client.getStringStackSize() - 1]);
+	}
+
+	@Test
+	public void publicChatFilteredOnDuplicate()
+	{
+		when(chatFilterConfig.collapsePlayerChat()).thenReturn(true);
+		when(chatFilterConfig.maxRepeatedPublicChats()).thenReturn(2);
+		chatFilterPlugin.onChatMessage(new ChatMessage(mockMessageNode(1), ChatMessageType.PUBLICCHAT, "testName", "testMessage", null, 0));
+		chatFilterPlugin.onChatMessage(new ChatMessage(mockMessageNode(1), ChatMessageType.PUBLICCHAT, "testName", "testMessage", null, 0));
+		chatFilterPlugin.onChatMessage(new ChatMessage(mockMessageNode(1), ChatMessageType.PUBLICCHAT, "testName", "testMessage", null, 0));
+		ScriptCallbackEvent event = createCallbackEvent("testName", "testMessage", ChatMessageType.PUBLICCHAT);
+		chatFilterPlugin.onScriptCallbackEvent(event);
+
+		assertEquals(0, client.getIntStack()[client.getIntStackSize() - 3]);
 	}
 }

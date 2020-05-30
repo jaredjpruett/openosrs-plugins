@@ -471,7 +471,10 @@ public class NpcIndicatorsPlugin extends Plugin
 	{
 		if (npcTags.contains(npc.getIndex()))
 		{
-			memorizeNpc(npc);
+			if (!client.isInInstancedRegion())
+			{
+				memorizeNpc(npc);
+			}
 			highlightedNpcs.add(npc);
 			return;
 		}
@@ -483,7 +486,10 @@ public class NpcIndicatorsPlugin extends Plugin
 			{
 				if (WildcardMatcher.matches(highlight, npcName))
 				{
-					memorizeNpc(npc);
+					if (!client.isInInstancedRegion())
+					{
+						memorizeNpc(npc);
+					}
 					highlightedNpcs.add(npc);
 					return;
 				}

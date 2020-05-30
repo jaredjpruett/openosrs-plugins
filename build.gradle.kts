@@ -8,7 +8,7 @@ plugins {
     checkstyle
     java
     id("com.github.ben-manes.versions") version "0.28.0"
-    id("se.patrikerdes.use-latest-versions") version "0.2.13"
+    id("se.patrikerdes.use-latest-versions") version "0.2.14"
     id("com.simonharrer.modernizer") version "1.8.0-1" apply false
 }
 
@@ -48,16 +48,6 @@ subprojects {
                 includeModule("net.runelite.gluegen", "gluegen-rt")
             }
         }
-        exclusiveContent {
-            forRepository {
-                maven {
-                    url = uri("https://raw.githubusercontent.com/open-osrs/hosting/master")
-                }
-            }
-            filter {
-                includeModule("com.openosrs.rxrelay3", "rxrelay")
-            }
-        }
 
         exclusiveContent {
             forRepository {
@@ -90,10 +80,10 @@ subprojects {
         compileOnly(group = "net.sf.jopt-simple", name = "jopt-simple", version = "5.0.4")
         compileOnly(group = "ch.qos.logback", name = "logback-classic", version = "1.2.3")
         compileOnly(group = "org.projectlombok", name = "lombok", version = "1.18.12")
-        compileOnly(group = "com.squareup.okhttp3", name = "okhttp", version = "4.6.0")
-        compileOnly(group = "com.squareup.okhttp3", name = "okhttp", version = "4.6.0")
+        compileOnly(group = "com.squareup.okhttp3", name = "okhttp", version = "4.7.2")
+        compileOnly(group = "com.squareup.okhttp3", name = "okhttp", version = "4.7.2")
         compileOnly(group = "org.pf4j", name = "pf4j", version = "3.3.1")
-        compileOnly(group = "io.reactivex.rxjava3", name = "rxjava", version = "3.0.3")
+        compileOnly(group = "io.reactivex.rxjava3", name = "rxjava", version = "3.0.4")
         compileOnly(group = "org.pushing-pixels", name = "radiance-substance", version = "2.5.1")
 
         testAnnotationProcessor(group = "org.projectlombok", name = "lombok", version = "1.18.12")
@@ -179,6 +169,11 @@ subprojects {
                     }
                 }
             }
+        }
+
+        register<Copy>("copyDeps") {
+            into("./build/deps/")
+            from(configurations["runtimeClasspath"])
         }
     }
 }

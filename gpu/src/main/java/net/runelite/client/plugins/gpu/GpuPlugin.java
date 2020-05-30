@@ -39,8 +39,10 @@ import com.jogamp.opengl.GLFBODrawable;
 import com.jogamp.opengl.GLProfile;
 import java.awt.Canvas;
 import java.awt.Dimension;
+import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.event.MouseEvent;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
@@ -71,31 +73,31 @@ import net.runelite.api.TilePaint;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.hooks.DrawCallbacks;
 import net.runelite.client.callback.ClientThread;
+import net.runelite.client.callback.Hooks;
 import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.input.MouseListener;
+import net.runelite.client.input.MouseManager;
 import net.runelite.client.plugins.Plugin;
+import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginInstantiationException;
 import net.runelite.client.plugins.PluginManager;
 import net.runelite.client.plugins.PluginType;
-import static net.runelite.client.plugins.gpu.GLUtil.glDeleteBuffer;
-import static net.runelite.client.plugins.gpu.GLUtil.glDeleteFrameBuffer;
-import static net.runelite.client.plugins.gpu.GLUtil.glDeleteRenderbuffers;
-import static net.runelite.client.plugins.gpu.GLUtil.glDeleteTexture;
-import static net.runelite.client.plugins.gpu.GLUtil.glDeleteVertexArrays;
-import static net.runelite.client.plugins.gpu.GLUtil.glGenBuffers;
-import static net.runelite.client.plugins.gpu.GLUtil.glGenFrameBuffer;
-import static net.runelite.client.plugins.gpu.GLUtil.glGenRenderbuffer;
-import static net.runelite.client.plugins.gpu.GLUtil.glGenTexture;
-import static net.runelite.client.plugins.gpu.GLUtil.glGenVertexArrays;
-import static net.runelite.client.plugins.gpu.GLUtil.glGetInteger;
+import static net.runelite.client.plugins.gpu.GLUtil.*;
 import net.runelite.client.plugins.gpu.config.AntiAliasingMode;
 import net.runelite.client.plugins.gpu.config.UIScalingMode;
 import net.runelite.client.plugins.gpu.template.Template;
+import net.runelite.client.plugins.mirror.MirrorPlugin;
 import net.runelite.client.ui.DrawManager;
+import net.runelite.client.ui.overlay.OverlayLayer;
+import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.OSType;
+import org.apache.commons.lang3.ArrayUtils;
 import org.pf4j.Extension;
 
+@PluginDependency(MirrorPlugin.class)
 @PluginDescriptor(
 	name = "GPU",
 	description = "Utilizes the GPU",
@@ -105,7 +107,7 @@ import org.pf4j.Extension;
 )
 @Slf4j
 @Extension
-public class GpuPlugin extends Plugin implements DrawCallbacks
+public class GpuPlugin extends Plugin implements DrawCallbacks, MouseListener
 {
 	// This is the maximum number of triangles the compute shaders support
 	private static final int MAX_TRIANGLE = 4096;
@@ -114,6 +116,11 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 	private static final int DEFAULT_DISTANCE = 25;
 	static final int MAX_DISTANCE = 90;
 	static final int MAX_FOG_DEPTH = 100;
+	private int mouseX = 0;
+	private int mouseY = 0;
+	private final Image cursor = ImageUtil.getResourceStreamFromClass(GpuPlugin.class, "cursor.png");
+	private BufferedImage tempBufferedImage;
+	private boolean drawThreadRunning = false;
 
 	@Inject
 	private Client client;
@@ -135,6 +142,12 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 
 	@Inject
 	private PluginManager pluginManager;
+
+	@Inject
+	private EventBus eventBus;
+
+	@Inject
+	private MouseManager mouseManager;
 
 	private boolean useComputeShaders;
 
@@ -275,6 +288,7 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 	private int uniBlockLarge;
 	private int uniBlockMain;
 	private int uniSmoothBanding;
+	private Graphics tempGraphics;
 
 	@Override
 	protected void startUp()
@@ -403,6 +417,7 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 				{
 					uploadScene();
 				}
+				mouseManager.registerMouseListener(this);
 			}
 			catch (Throwable e)
 			{
@@ -495,6 +510,7 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 
 			// force main buffer provider rebuild to turn off alpha channel
 			client.resizeCanvas();
+			mouseManager.unregisterMouseListener(this);
 		});
 	}
 
@@ -1118,18 +1134,18 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 				renderCanvasHeight = dim.height;
 
 				double scaleFactorY = dim.getHeight() / canvasHeight;
-				double scaleFactorX = dim.getWidth()  / canvasWidth;
+				double scaleFactorX = dim.getWidth() / canvasWidth;
 
 				// Pad the viewport a little because having ints for our viewport dimensions can introduce off-by-one errors.
 				final int padding = 1;
 
 				// Ceil the sizes because even if the size is 599.1 we want to treat it as size 600 (i.e. render to the x=599 pixel).
 				renderViewportHeight = (int) Math.ceil(scaleFactorY * (renderViewportHeight)) + padding * 2;
-				renderViewportWidth  = (int) Math.ceil(scaleFactorX * (renderViewportWidth )) + padding * 2;
+				renderViewportWidth = (int) Math.ceil(scaleFactorX * (renderViewportWidth)) + padding * 2;
 
 				// Floor the offsets because even if the offset is 4.9, we want to render to the x=4 pixel anyway.
-				renderHeightOff      = (int) Math.floor(scaleFactorY * (renderHeightOff)) - padding;
-				renderWidthOff       = (int) Math.floor(scaleFactorX * (renderWidthOff )) - padding;
+				renderHeightOff = (int) Math.floor(scaleFactorY * (renderHeightOff)) - padding;
+				renderWidthOff = (int) Math.floor(scaleFactorX * (renderWidthOff)) - padding;
 			}
 
 			glDpiAwareViewport(renderWidthOff, renderCanvasHeight - renderViewportHeight - renderHeightOff, renderViewportWidth, renderViewportHeight);
@@ -1234,9 +1250,51 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 	private void drawUi(final int canvasHeight, final int canvasWidth)
 	{
 		final BufferProvider bufferProvider = client.getBufferProvider();
-		final int[] pixels = bufferProvider.getPixels();
+		int[] pixels = bufferProvider.getPixels();
 		final int width = bufferProvider.getWidth();
 		final int height = bufferProvider.getHeight();
+
+		// Handle Mirror
+		// We still need to draw AFTER_MIRROR regardless of Mirror being active
+		if (client.isMirrored())
+		{
+			if (MirrorPlugin.bufferedImage == null)
+			{
+				MirrorPlugin.bufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+			}
+
+			tempGraphics = MirrorPlugin.bufferedImage.getGraphics();
+
+			if (tempGraphics != null)
+			{
+				if (MirrorPlugin.canvas.getWidth() != width || MirrorPlugin.canvas.getHeight() != height)
+				{
+					MirrorPlugin.bufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+					MirrorPlugin.canvas.setSize(width, height);
+					MirrorPlugin.jframe.setSize(width + 15, height + 40);
+				}
+
+				Image i = currentRender();
+				int[] a = ArrayUtils.clone(pixels);
+
+				Thread t = new Thread(() ->
+				{
+					drawThreadRunning = true;
+					tempGraphics.drawImage(i, 0, 0, null);
+					tempGraphics.drawImage(toBufferedImage(a, width, height), 0, 0, null);
+					tempGraphics.drawImage(cursor, mouseX, mouseY, null);
+					MirrorPlugin.canvas.getGraphics().drawImage(MirrorPlugin.bufferedImage, 0, 0, null);
+					drawThreadRunning = false;
+				});
+
+				if (!drawThreadRunning)
+				{
+					t.start();
+				}
+			}
+		}
+
+		Hooks.renderer.render(Hooks.lastGraphics, OverlayLayer.AFTER_MIRROR);
 
 		gl.glEnable(gl.GL_BLEND);
 
@@ -1244,7 +1302,9 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 		vertexBuffer.ensureCapacity(pixels.length);
 
 		IntBuffer interfaceBuffer = vertexBuffer.getBuffer();
+
 		interfaceBuffer.put(pixels);
+
 		vertexBuffer.flip();
 
 		gl.glBlendFunc(gl.GL_ONE, gl.GL_ONE_MINUS_SRC_ALPHA);
@@ -1296,6 +1356,17 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 		vertexBuffer.clear();
 	}
 
+	public BufferedImage toBufferedImage(int[] pixels, int width, int height)
+	{
+		if (tempBufferedImage == null || tempBufferedImage.getWidth() != width || tempBufferedImage.getHeight() != height)
+		{
+			tempBufferedImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+		}
+
+		tempBufferedImage.setRGB(0, 0, width, height, pixels, 0, width);
+		return tempBufferedImage;
+	}
+
 	/**
 	 * Convert the front framebuffer to an Image
 	 *
@@ -1303,13 +1374,13 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 	 */
 	private Image screenshot()
 	{
-		int width  = client.getCanvasWidth();
+		int width = client.getCanvasWidth();
 		int height = client.getCanvasHeight();
 
 		if (client.isStretchedEnabled())
 		{
 			Dimension dim = client.getStretchedDimensions();
-			width  = dim.width;
+			width = dim.width;
 			height = dim.height;
 		}
 
@@ -1336,6 +1407,46 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 		}
 
 		return image;
+	}
+
+	private Image currentRender()
+	{
+		int width;
+		int height;
+
+		if (client.isStretchedEnabled())
+		{
+			width = (int) (((float) client.getCanvasWidth() * client.getScalingFactor()) * ((float) config.windowsScale().getScale() / 100));
+			height = (int) (((float) client.getCanvasHeight() * client.getScalingFactor()) * ((float) config.windowsScale().getScale() / 100));
+		}
+		else
+		{
+			width = (int) (client.getCanvasWidth() * ((float) config.windowsScale().getScale() / 100));
+			height = (int) (client.getCanvasHeight() * ((float) config.windowsScale().getScale() / 100));
+		}
+
+		ByteBuffer tempBuffer = ByteBuffer.allocateDirect(width * height * 4)
+			.order(ByteOrder.nativeOrder());
+
+		gl.glReadBuffer(gl.GL_BACK);
+		gl.glReadPixels(0, 0, width, height, GL.GL_RGBA, gl.GL_UNSIGNED_BYTE, tempBuffer);
+
+		BufferedImage mirrorImage = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+		int[] pixels = ((DataBufferInt) mirrorImage.getRaster().getDataBuffer()).getData();
+
+		for (int y = 0; y < height; ++y)
+		{
+			for (int x = 0; x < width; ++x)
+			{
+				int r = tempBuffer.get() & 0xff;
+				int g = tempBuffer.get() & 0xff;
+				int b = tempBuffer.get() & 0xff;
+				tempBuffer.get(); // alpha
+
+				pixels[(height - y - 1) * width + x] = (r << 16) | (g << 8) | b;
+			}
+		}
+		return mirrorImage;
 	}
 
 	@Override
@@ -1623,5 +1734,51 @@ public class GpuPlugin extends Plugin implements DrawCallbacks
 		{
 			runnable.run();
 		}
+	}
+
+	@Override
+	public MouseEvent mouseClicked(MouseEvent mouseEvent)
+	{
+		return mouseEvent;
+	}
+
+	@Override
+	public MouseEvent mousePressed(MouseEvent mouseEvent)
+	{
+		return mouseEvent;
+	}
+
+	@Override
+	public MouseEvent mouseReleased(MouseEvent mouseEvent)
+	{
+		return mouseEvent;
+	}
+
+	@Override
+	public MouseEvent mouseEntered(MouseEvent mouseEvent)
+	{
+		return mouseEvent;
+	}
+
+	@Override
+	public MouseEvent mouseExited(MouseEvent mouseEvent)
+	{
+		return mouseEvent;
+	}
+
+	@Override
+	public MouseEvent mouseDragged(MouseEvent mouseEvent)
+	{
+		mouseX = mouseEvent.getX();
+		mouseY = mouseEvent.getY();
+		return mouseEvent;
+	}
+
+	@Override
+	public MouseEvent mouseMoved(MouseEvent mouseEvent)
+	{
+		mouseX = mouseEvent.getX();
+		mouseY = mouseEvent.getY();
+		return mouseEvent;
 	}
 }

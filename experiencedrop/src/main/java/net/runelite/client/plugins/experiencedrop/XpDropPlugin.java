@@ -41,6 +41,7 @@ import net.runelite.api.Player;
 import static net.runelite.api.ScriptID.XPDROP_DISABLED;
 import net.runelite.api.Skill;
 import net.runelite.api.SpriteID;
+import net.runelite.api.VarClientInt;
 import net.runelite.api.Varbits;
 import net.runelite.api.WorldType;
 import net.runelite.api.events.FakeXpDrop;
@@ -75,7 +76,7 @@ public class XpDropPlugin extends Plugin
 {
 	private static final int XPDROP_PADDING = 2; // space between xp drop icons
 	private static final double HITPOINT_RATIO = 1.33; // Base rate of hp xp per point damage
-	private static final double DMM_MULTIPLIER_RATIO = 10;
+	private static double DMM_MULTIPLIER_RATIO;
 
 	@Inject
 	private Client client;
@@ -392,9 +393,24 @@ public class XpDropPlugin extends Plugin
 	{
 		double damageDealt = diff / HITPOINT_RATIO;
 
-		// DeadMan mode has an XP modifier of 10x
-		if (client.getWorldType().contains(WorldType.DEADMAN))
+		// DeadMan mode Tournament has an XP modifier of 10x in safezone, 15x outside.
+		if (client.getWorldType().contains(WorldType.DEADMAN_TOURNAMENT))
 		{
+			if (client.getVar(VarClientInt.DMM_SAFEZONE) == 0)
+			{
+				DMM_MULTIPLIER_RATIO = 15;
+			}
+			if (client.getVar(VarClientInt.DMM_SAFEZONE) == 1)
+			{
+				DMM_MULTIPLIER_RATIO = 10;
+			}
+			damageDealt = damageDealt / DMM_MULTIPLIER_RATIO;
+		}
+		// DeadMan mode W45 has an XP modifier of 10x
+		else if (!client.getWorldType().contains(WorldType.DEADMAN_TOURNAMENT)
+			&& client.getWorldType().contains(WorldType.DEADMAN))
+		{
+			DMM_MULTIPLIER_RATIO = 10;
 			damageDealt = damageDealt / DMM_MULTIPLIER_RATIO;
 		}
 
