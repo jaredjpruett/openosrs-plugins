@@ -224,7 +224,7 @@ public interface ScreenshotConfig extends Config
 		keyName = "ccKick",
 		name = "Screenshot Kicks from CC",
 		description = "Take a screenshot when you kick a user from a clan chat.",
-		position = 15
+		position = 16
 	)
 	default boolean screenshotCcKick()
 	{
@@ -235,7 +235,7 @@ public interface ScreenshotConfig extends Config
 		keyName = "hotkey",
 		name = "Screenshot hotkey",
 		description = "When you press this key a screenshot will be taken",
-		position = 16
+		position = 17
 	)
 	default Keybind hotkey()
 	{
@@ -247,7 +247,7 @@ public interface ScreenshotConfig extends Config
 			keyName = "mentions",
 			name = "Screenshot Mentions",
 			description = "Configures whether screenshots are taken when the player is mentioned in chat.",
-			position = 17
+			position = 18
 	)
 	default boolean screenshotMentions() { return false; }
 	// TODO: Dev end
