@@ -137,7 +137,7 @@ subprojects {
             doLast {
                 copy {
                     from("./build/libs/")
-                    into("../buildTar/release/")
+                    into("../build/release/")
                 }
             }
         }

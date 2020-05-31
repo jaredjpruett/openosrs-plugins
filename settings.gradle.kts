@@ -183,6 +183,7 @@ include(":zalcano")
 
 include(":reorderprayers")
 include(":screenshot")
+include(":screenshots")
 
 for (project in rootProject.children) {
     project.apply {
