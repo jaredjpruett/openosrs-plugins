@@ -220,16 +220,6 @@ public interface ScreenshotConfig extends Config
 		return false;
 	}
 
-	// TODO: Dev begin
-	@ConfigItem(
-			keyName = "mentions",
-			name = "Screenshot Mentions",
-			description = "Configures whether screenshots are taken when the player is mentioned in chat.",
-			position = 15
-	)
-	default boolean screenshotMentions() { return false; }
-	// TODO: Dev end
-
 	@ConfigItem(
 		keyName = "ccKick",
 		name = "Screenshot Kicks from CC",
@@ -251,4 +241,14 @@ public interface ScreenshotConfig extends Config
 	{
 		return Keybind.NOT_SET;
 	}
+
+	// TODO: Dev begin
+	@ConfigItem(
+			keyName = "mentions",
+			name = "Screenshot Mentions",
+			description = "Configures whether screenshots are taken when the player is mentioned in chat.",
+			position = 17
+	)
+	default boolean screenshotMentions() { return false; }
+	// TODO: Dev end
 }
